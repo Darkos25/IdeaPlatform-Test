@@ -78,7 +78,7 @@ public class Main {
             if (isNullOrEmpty(flight.getDeparture_date()) || isNullOrEmpty(flight.getDeparture_time()) ||
                     isNullOrEmpty(flight.getArrival_date()) || isNullOrEmpty(flight.getArrival_time())) {
                 System.err.println("Пропущены даты или время для рейса " + flight.getCarrier());
-                return -1; // Возвращаем -1, если одна из дат или время отсутствует
+                return -1;
             }
 
             LocalDateTime departure = LocalDateTime.parse(flight.getDeparture_date() + " " + flight.getDeparture_time(), dateFormatter);
@@ -86,7 +86,7 @@ public class Main {
             return java.time.Duration.between(departure, arrival).toMillis();
         } catch (DateTimeParseException e) {
             System.err.println("Ошибка при разборе даты для рейса " + flight.getCarrier() + ": " + e.getMessage());
-            return -1; // Возвращаем -1 в случае ошибки
+            return -1;
         }
     }
 
