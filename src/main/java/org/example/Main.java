@@ -4,14 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 public class Main {
     public static void main(String[] args) {
         if (args.length != 1) {
-            System.out.println("Usage: java -jar IdeaPlatformTest-1.0-SNAPSHOT.jar <path_to_json_file>");
+            System.out.println("Usage: java -jar flight-analyzer.jar <path_to_json_file>");
             return;
         }
 
@@ -29,10 +30,10 @@ public class Main {
             }
 
             Map<String, Long> minFlightTimeByCarrier = new HashMap<>();
-            SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd.MM.yy HH:mm");
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yy H:mm");
 
             for (Flight flight : vvoToTlvFlights) {
-                long flightDuration = calculateFlightDuration(dateTimeFormat, flight);
+                long flightDuration = calculateFlightDuration(dateFormatter, flight);
                 if (flightDuration != -1) {
                     minFlightTimeByCarrier.merge(flight.getCarrier(), flightDuration, Math::min);
                 }
@@ -67,23 +68,36 @@ public class Main {
             System.out.println("Медиана: " + medianPrice);
             System.out.println("Разница: " + Math.abs(averagePrice - medianPrice));
 
-        } catch (IOException | ParseException e) {
+        } catch (IOException | DateTimeParseException e) {
             e.printStackTrace();
         }
     }
 
-    private static long calculateFlightDuration(SimpleDateFormat dateTimeFormat, Flight flight) throws ParseException {
-        if (flight.getDepartureDate() == null || flight.getDepartureTime() == null ||
-                flight.getArrivalDate() == null || flight.getArrivalTime() == null) {
-            return -1;
-        }
+    private static long calculateFlightDuration(DateTimeFormatter dateFormatter, Flight flight) {
+        try {
+            if (isNullOrEmpty(flight.getDeparture_date()) || isNullOrEmpty(flight.getDeparture_time()) ||
+                    isNullOrEmpty(flight.getArrival_date()) || isNullOrEmpty(flight.getArrival_time())) {
+                System.err.println("Пропущены даты или время для рейса " + flight.getCarrier());
+                return -1; // Возвращаем -1, если одна из дат или время отсутствует
+            }
 
-        Date departure = dateTimeFormat.parse(flight.getDepartureDate() + " " + flight.getDepartureTime());
-        Date arrival = dateTimeFormat.parse(flight.getArrivalDate() + " " + flight.getArrivalTime());
-        return arrival.getTime() - departure.getTime();
+            LocalDateTime departure = LocalDateTime.parse(flight.getDeparture_date() + " " + flight.getDeparture_time(), dateFormatter);
+            LocalDateTime arrival = LocalDateTime.parse(flight.getArrival_date() + " " + flight.getArrival_time(), dateFormatter);
+            return java.time.Duration.between(departure, arrival).toMillis();
+        } catch (DateTimeParseException e) {
+            System.err.println("Ошибка при разборе даты для рейса " + flight.getCarrier() + ": " + e.getMessage());
+            return -1; // Возвращаем -1 в случае ошибки
+        }
+    }
+
+    private static boolean isNullOrEmpty(String str) {
+        return str == null || str.trim().isEmpty();
     }
 
     private static String formatDuration(long durationMillis) {
+        if (durationMillis == -1) {
+            return "N/A";
+        }
         long hours = durationMillis / (1000 * 60 * 60);
         long minutes = (durationMillis % (1000 * 60 * 60)) / (1000 * 60);
         return hours + "ч " + minutes + "мин";
